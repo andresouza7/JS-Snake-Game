@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>The Flash Snake Game</title>
+        <style>
+            #screen {
+                border: 10px solid #CCC;
+                image-rendering: pixelated;
+                image-rendering: crisp-edges;
+                image-rendering: -moz-crisp-edges;
+                width: 500px;
+                height: 500px;
+            }
+        </style>
+	</head>
+	<body>
+        <h4 style="font-family: 'Courier New', Courier, monospace; font-size: 32px;">
+            The Snake Game
+        </h4>
+        <p style="font-family: 'Courier New', Courier, monospace;">
+            <sup>*</sup> Eating gets you faster...
+        </p>
+        <div >
+        <canvas id="screen" width="10" height="10"></canvas>
+        </div>
+        <p id="gameStats" style="font-family: 'Courier New', Courier, monospace; font-size: 32px;"></p>
+        <br>
+
+		<script>
+            // 1. Configuração do canvas
+			const screen = document.getElementById('screen');
+            const context = screen.getContext('2d');
+            
+            // 2. Declaração e inicialização de variáveis do jogo
+            const MAP_LENGTH = 10; // in pixels
+            var direction = 'right';
+            var keyPressed = true;
+            var fruitEaten = false;
+            var speed = 500; // in milliseconds
+            var gameOver = false;
+            var xp = 0;
+
+            const game = {
+                player: [
+                    {x:4,y:0},
+                    {x:3,y:0},
+                    {x:2,y:0},
+                    {x:1,y:0},
+                    {x:0,y:0}
+                ],
+                fruit: {x:3,y:3}
+            }
+
+            // 3. Declaração de funções do jogo
+            window.addEventListener("keydown", function (event) {
+                if (event.defaultPrevented) {
+                    return; // Do nothing if the event was already processed
+                }
+
+                switch (event.key) {
+                    case "ArrowDown":
+                    // code for "down arrow" key press.
+                    direction='down';
+                    keyPressed = true;
+                    break;
+                    case "ArrowUp":
+                    // code for "up arrow" key press.
+                    direction='up';
+                    keyPressed = true;
+                    break;
+                    case "ArrowLeft":
+                    // code for "left arrow" key press.
+                    direction='left';
+                    keyPressed = true;
+                    break;
+                    case "ArrowRight":
+                    // code for "right arrow" key press.
+                    direction='right';
+                    keyPressed = true;
+                    break;
+                    default:
+                    return; // Quit when this doesn't handle the key event.
+                }
+
+                // Cancel the default action to avoid it being handled twice
+                event.preventDefault();
+            }, true);
+
+            function updateStats() {
+                const display = document.getElementById("gameStats");
+                display.innerText = `Score: ${xp} pts`
+            }
+
+            function movePlayer() {
+                // whole body follows head movement
+                function moveBody(positionIndex) {
+                    if (positionIndex == 0)
+                        return;
+                    game.player[positionIndex].x = game.player[positionIndex - 1].x;
+                    game.player[positionIndex].y = game.player[positionIndex - 1].y;
+                    positionIndex--;
+                    return moveBody(positionIndex);
+                }
+
+                function moveHead() {
+                    switch (direction) {
+                        case "down":
+                        game.player[0].y++;
+                        break;
+                        case "up":
+                        game.player[0].y--;
+                        break;
+                        case "left":
+                        game.player[0].x--;
+                        break;
+                        case "right":
+                        game.player[0].x++;
+                        break;
+                        default:
+                        return;
+                    }
+                }
+
+                moveBody(game.player.length - 1);
+                moveHead();
+            }
+
+            function Fruit () {
+                // implement spawn only out of body area...
+                let x = 0;
+                let y = 0;
+                let isPlayerBody = false;
+                function getRandom(min, max) {
+                    return Math.floor(Math.random() * (max - min + 1)) + min;
+                }
+                var fruitTimer;
+                this.startSpawnning = () => {
+                    fruitTimer = setInterval(() => {
+                        fruitEaten = false;
+                        let positionX = getRandom(0,MAP_LENGTH - 1);
+                        let positionY = getRandom(0,MAP_LENGTH - 1);
+                        game.fruit = {x: positionX, y: positionY};
+                    }, 5000);
+                }
+                this.stopSpawnning = () => { clearInterval(fruitTimer) }
+            }
+
+            function eatFruit() {
+                if (JSON.stringify(game.player[0]) === JSON.stringify(game.fruit) && !fruitEaten) {
+                    const newBlock = {
+                        x: game.player[game.player.length - 1].x,
+                        y: game.player[game.player.length - 1].y
+                    }
+                    game.player.push(newBlock);
+                    game.fruit=null;
+                    fruitEaten = true;
+                    xp += ((510 - speed) * 10);
+                    speed -= 15;
+                    updateStats();
+                }
+            }
+
+            function detectBorder() {
+                if (game.player[0].x < 0)
+                    game.player[0].x = MAP_LENGTH - 1;
+                if (game.player[0].x >= MAP_LENGTH)
+                    game.player[0].x = 0;
+                if (game.player[0].y < 0)
+                    game.player[0].y = MAP_LENGTH - 1;
+                if (game.player[0].y >= MAP_LENGTH)
+                    game.player[0].y = 0;
+            }
+
+            function detectCollision() {
+                const collision = game.player.find((playerPosition, index) => {
+                    if (index > 0)
+                        return JSON.stringify(playerPosition) === JSON.stringify(game.player[0]);
+                    return false;
+                });
+                return collision !== undefined ? true : false;
+
+            }
+
+            function renderGameObjects() {
+                context.fillStyle = 'white';
+                context.fillRect(0, 0, MAP_LENGTH, MAP_LENGTH);
+                // draw fruit
+                context.fillStyle = 'green';
+                if (game.fruit)
+                    context.fillRect(game.fruit.x, game.fruit.y, 1, 1);
+                // draw player
+                game.player.forEach(function(position, index){
+                    if (index == 0) 
+                        context.fillStyle = 'gray';
+                    else
+                        context.fillStyle = 'blue';
+                    context.fillRect(position.x, position.y, 1, 1);
+                });
+            }
+
+            var fruit = new Fruit();
+            fruit.startSpawnning();
+
+            // 4. Execução da rotina principal
+            const main = () => {
+                updateStats();
+                if (gameOver) {
+                    clearInterval(this.timer);
+                    fruit.stopSpawnning();
+                    alert('GAME OVER!');
+                    return;
+                }
+
+                renderGameObjects();
+
+                eatFruit();
+
+                detectBorder();
+
+                gameOver = detectCollision();
+
+                if (keyPressed) {
+                    if (this.timer)
+                        clearInterval(this.timer);
+
+                    movePlayer();
+
+                    this.timer = setInterval(() => {
+                        movePlayer();
+
+                    }, speed);
+                    keyPressed = false;
+                }
+                requestAnimationFrame(main);
+            } 
+            main();  
+			
+		</script>
+	</body>
+</html>
